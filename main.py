@@ -9,6 +9,18 @@ class Bubble(pygame.sprite.Sprite):
         self.color = color
         self.rect = image.get_rect(center=position)
 
+# 발사대 클래스 생성
+class LaunchPad(pygame.sprite.Sprite):
+    def __init__(self, image, position):
+        super().__init__()
+        self.image = image
+        self.rect = image.get_rect(center=position)
+
+    #sprite.Group()은 draw함수가 있으나, sprite는 draw 함수가 없으므로 여기서 정의한다
+    def draw(self, screen):
+        screen.blit(self.image,self.rect)   #screen에 image를 rect에 맞추서 표시해준다.    
+
+
 #맵 만들기
 def setup():
     global map
@@ -81,6 +93,10 @@ bubble_images = [
     ,pygame.image.load(os.path.join(current_path, "black.png")).convert_alpha()                #검정 공
 ]
 
+#발사대 이미지 불러오기
+launchPad_image = pygame.image.load(os.path.join(current_path, "launchPad.png"))
+launchPad = LaunchPad(launchPad_image,( screen_width //2, 624))                               #발사대 위치 세팅
+
 #게임 관련 변수
 CELL_SIZE =     56
 BUBBLE_WIDTH =  56
@@ -98,8 +114,9 @@ while running:
         if event.type == pygame.QUIT:
             running = False                                     #반복문 탈출하도록 running변수 변경
 
-    screen.blit(background, (0,0))                              #(0,0) background 띄우기     
-    bubble_group.draw(screen)
+    screen.blit(background, (0,0))                              #(0,0) background 표시하기     
+    bubble_group.draw(screen)                                   #버블 표시하기
+    launchPad.draw(screen)                                      #발사대 표시하기
     pygame.display.update()
      
 pygame.quit()
