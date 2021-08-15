@@ -1,3 +1,4 @@
+from typing import AsyncContextManager
 import pygame
 import os
 
@@ -11,14 +12,35 @@ class Bubble(pygame.sprite.Sprite):
 
 # 발사대 클래스 생성
 class LaunchPad(pygame.sprite.Sprite):
-    def __init__(self, image, position):
+    def __init__(self, image, position,angle):
         super().__init__()
-        self.image = image
+        self.image = image          #움직여진 각도의 이미지
+        self.position = position
         self.rect = image.get_rect(center=position)
+        self.angle = angle
+        self.original_image = image  #0도의 이미지
 
+    #draw 함수 정의
     #sprite.Group()은 draw함수가 있으나, sprite는 draw 함수가 없으므로 여기서 정의한다
     def draw(self, screen):
         screen.blit(self.image,self.rect)   #screen에 image를 rect에 맞추서 표시해준다.    
+
+    # 회전 
+    def rotate(self, angle):
+        self.angle += angle
+
+        if self.angle > 170:
+            self.angle =170
+        elif self.angle <10:
+            self.angle = 10     
+
+        #원본이미지의 각도 변화 시켜서 업데이트 시키도록 하자
+        #self.original_image를 self.angle 각도 만큼 변화시켜서 self.image에 준다.
+        #1은 몇배로 확대하느냐를 의미하는 변수
+        self.image = pygame.transform.rotozoom(self.original_image,self.angle,1)
+        
+        #rect는 게임 시작시 position을 기준으로 더해진 각도로 
+        self.rect = self.image.get_rect(center=self.position)     
 
 
 #맵 만들기
@@ -95,12 +117,18 @@ bubble_images = [
 
 #발사대 이미지 불러오기
 launchPad_image = pygame.image.load(os.path.join(current_path, "launchPad.png"))
-launchPad = LaunchPad(launchPad_image,( screen_width //2, 624))                               #발사대 위치 세팅
+launchPad = LaunchPad(launchPad_image,( screen_width //2, 624),90)                               #발사대 위치 세팅
 
 #게임 관련 변수
 CELL_SIZE =     56
 BUBBLE_WIDTH =  56
 BUBBLE_HEIGHT = 62
+
+#발사대 관련 변수
+TO_ANGLE_LEFT     = 0   # 좌로 움직인 각도의 정보
+TO_ANGLE_RIGHT    = 0   # 우로 움직인 각도의 정보
+ANGLE_SPEED = 1.5       # 움직일 속도(1.5도씩 움직이게 됨)
+
 
 map = [] #맵
 bubble_group = pygame.sprite.Group()  # 버블을 생성해서 관리할 공간
@@ -114,9 +142,28 @@ while running:
         if event.type == pygame.QUIT:
             running = False                                     #반복문 탈출하도록 running변수 변경
 
+        # 키보드의 아래화살표가 눌려졌을때 이벤트 처리
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_LEFT:
+                TO_ANGLE_LEFT += ANGLE_SPEED
+
+            elif event.key == pygame.K_RIGHT:    
+                TO_ANGLE_RIGHT -= ANGLE_SPEED
+
+    # 키보드의 아래화살표가 떼어졌을때 이벤트 처리
+        if event.type == pygame.KEYUP:
+            if event.key == pygame.K_LEFT:
+                TO_ANGLE_LEFT = 0
+            elif event.key == pygame.K_RIGHT:
+                TO_ANGLE_RIGHT = 0
+
+
+
+
     screen.blit(background, (0,0))                              #(0,0) background 표시하기     
     bubble_group.draw(screen)                                   #버블 표시하기
     launchPad.draw(screen)                                      #발사대 표시하기
+    launchPad.rotate(TO_ANGLE_LEFT+TO_ANGLE_RIGHT)                                  #발사대 이미지 각도 표현하기
     pygame.display.update()
      
 pygame.quit()
