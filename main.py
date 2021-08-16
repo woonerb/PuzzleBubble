@@ -1,14 +1,21 @@
-from typing import AsyncContextManager
 import pygame
 import os
+import random
 
 # 버블 클래스 생성
 class Bubble(pygame.sprite.Sprite):
-    def __init__(self, image , color, position):
+    def __init__(self, image , color, position=(0,0)):
         super().__init__()
         self.image = image
         self.color = color
         self.rect = image.get_rect(center=position)
+
+    #버블의 위치 세팅해주는 setter
+    def set_rect(self, position):   
+        self.rect = self.image.get_rect(center=position)
+
+    def draw(self, screen):
+        screen.blit(self.image, self.rect)    
 
 # 발사대 클래스 생성
 class LaunchPad(pygame.sprite.Sprite):
@@ -93,6 +100,29 @@ def get_bubble_image(color):
         return bubble_images[5]
 
 
+#다음번에 발사할 버블을 준비한다
+def prepare_bubbles():
+    global CURR_BUBBLE
+    CURR_BUBBLE = create_bubble() #새 버블 만들기
+    CURR_BUBBLE.set_rect((screen_width// 2, 624))        #새로 만든 버블의 위치 정해주기
+
+#버블을 만든다
+def create_bubble():
+    color = get_random_bubble_color()
+    image = get_bubble_image(color)
+    return Bubble(image,color) #우선 버블의 위치는 정하지 않고, 객체만 생성
+    
+
+#랜덤으로 버블 색깔을 정한다
+def get_random_bubble_color():
+    colors = [] #색깔의 후보가 될 수 있는 것들
+    for row in map:
+        for col in row:
+            # 비어있거나 || .이거나 || / 아닌 경우 col을 하나 추가한다
+            if col not in colors and col not in [".","/"]:
+                colors.append(col)
+    return random.choice(colors)            
+
 pygame.init()
 screen_width = 448
 screen_height = 720
@@ -123,6 +153,9 @@ launchPad = LaunchPad(launchPad_image,( screen_width //2, 624),90)              
 CELL_SIZE =     56
 BUBBLE_WIDTH =  56
 BUBBLE_HEIGHT = 62
+
+#이번에 쏠 버블
+CURR_BUBBLE = None
 
 #발사대 관련 변수
 TO_ANGLE_LEFT     = 0   # 좌로 움직인 각도의 정보
@@ -158,12 +191,16 @@ while running:
                 TO_ANGLE_RIGHT = 0
 
 
-
+    if not CURR_BUBBLE:
+        prepare_bubbles()
 
     screen.blit(background, (0,0))                              #(0,0) background 표시하기     
     bubble_group.draw(screen)                                   #버블 표시하기
+    launchPad.rotate(TO_ANGLE_LEFT+TO_ANGLE_RIGHT)              #발사대 이미지 각도 표현하기
     launchPad.draw(screen)                                      #발사대 표시하기
-    launchPad.rotate(TO_ANGLE_LEFT+TO_ANGLE_RIGHT)                                  #발사대 이미지 각도 표현하기
+    if CURR_BUBBLE:                                             #발사할 버블을 표시하기
+        CURR_BUBBLE.draw(screen)
+
     pygame.display.update()
      
 pygame.quit()
