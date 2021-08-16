@@ -122,9 +122,21 @@ def get_bubble_image(color):
 
 #다음번에 발사할 버블을 준비한다
 def prepare_bubbles():
-    global CURR_BUBBLE
-    CURR_BUBBLE = create_bubble() #새 버블 만들기
-    CURR_BUBBLE.set_rect((screen_width// 2, 624))        #새로 만든 버블의 위치 정해주기
+    global CURR_BUBBLE, NEXT_BUBBLE
+    
+    #다음에 쏠 버블이 있다면, 현재 버블에 다음 버블을 넣는다.
+    if NEXT_BUBBLE:
+            CURR_BUBBLE = NEXT_BUBBLE
+    #다음에 쏠 버블이 없다면, 버블을 새로 만든다.
+    else:
+        CURR_BUBBLE = create_bubble() #새 버블 만들기
+    
+    CURR_BUBBLE.set_rect((screen_width// 2, 624))        #버블의 위치를 발사대 위치로 정해준다.
+
+    NEXT_BUBBLE = create_bubble()
+    NEXT_BUBBLE.set_rect((screen_width // 4 , 688))      #버블의 위치를 다음에 쏠 위치로 정해준다.
+
+    
 
 #버블을 만든다
 def create_bubble():
@@ -142,6 +154,34 @@ def get_random_bubble_color():
             if col not in colors and col not in [".","/"]:
                 colors.append(col)
     return random.choice(colors)            
+
+def process_collision():
+    global CURR_BUBBLE, FIRE
+    #충돌한 버블
+    hit_bubble = pygame.sprite.spritecollideany(CURR_BUBBLE, bubble_group, pygame.sprite.collide_mask)
+    if hit_bubble:
+        #(* ㅁㅁ) 적으면 튜플형태를 (ㅇ,ㅇ)형태로 분리해서 전달
+        row_index, col_idx = get_map_index(*CURR_BUBBLE.rect.center)
+        place_bubble(CURR_BUBBLE, row_index, col_idx) 
+        CURR_BUBBLE = None
+        FIRE = False
+
+
+def get_map_index(x, y):
+    row_idx = y // CELL_SIZE
+    col_idx = x // CELL_SIZE
+    if row_idx %2 ==1:
+        col_idx = (x - (CELL_SIZE //2)) // CELL_SIZE
+        if col_idx < 0 : col_idx = 0
+        if col_idx > MAP_ROW_COUNT - 2 : col_idx = MAP_ROW_COUNT - 2    
+    return row_idx, col_idx
+
+#버블의 위치조정(충돌시 변화 위해서)
+def place_bubble(bubble, row_idx, col_idx):
+    map[row_idx][col_idx] = bubble.color
+    position = get_bubble_position(row_idx, col_idx)
+    bubble.set_rect(position)
+    bubble_group.add(bubble)
 
 pygame.init()
 screen_width = 448
@@ -173,7 +213,11 @@ launchPad = LaunchPad(launchPad_image,( screen_width //2, 624),90)              
 CELL_SIZE =     56
 BUBBLE_WIDTH =  56
 BUBBLE_HEIGHT = 62
+MAP_ROW_COUNT = 11        #맵의 행 갯수
+MAP_COLUMN_COUNT=8        #맵의 열 갯수
+
 CURR_BUBBLE = None      #이번에 쏠 버블
+NEXT_BUBBLE = None      #다음에 쏠 버블
 FIRE        = False     #발사중인지 여부
 
 #발사대 관련 변수
@@ -219,6 +263,10 @@ while running:
     if not CURR_BUBBLE:
         prepare_bubbles()
 
+    if FIRE:
+        #충돌처리
+        process_collision()
+
     screen.blit(background, (0,0))                              #(0,0) background 표시하기     
     bubble_group.draw(screen)                                   #버블 표시하기
     launchPad.rotate(TO_ANGLE_LEFT+TO_ANGLE_RIGHT)              #발사대 이미지 각도 표현하기
@@ -235,6 +283,10 @@ while running:
         if CURR_BUBBLE.rect.top <= 0 : 
             CURR_BUBBLE = None
             FIRE = False
+
+    #다음에 발사할 버블을 표시하기
+    if NEXT_BUBBLE:
+            NEXT_BUBBLE.draw(screen)        
 
     pygame.display.update()
      
