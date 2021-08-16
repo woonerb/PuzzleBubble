@@ -1,14 +1,17 @@
 import pygame
 import os
 import random
+import math
+
 
 # 버블 클래스 생성
 class Bubble(pygame.sprite.Sprite):
     def __init__(self, image , color, position=(0,0)):
         super().__init__()
-        self.image = image
-        self.color = color
-        self.rect = image.get_rect(center=position)
+        self.image  = image
+        self.color  = color
+        self.rect   = image.get_rect(center=position)
+        self.radius = 9
 
     #버블의 위치 세팅해주는 setter
     def set_rect(self, position):   
@@ -16,6 +19,23 @@ class Bubble(pygame.sprite.Sprite):
 
     def draw(self, screen):
         screen.blit(self.image, self.rect)    
+
+    def set_angle(self, angle):
+        self.angle = angle
+        self.rad_angle = math.radians(self.angle) #각도를 라디안수치로 변경
+
+    def move(self):
+        to_x = self.radius * math.cos(self.rad_angle)
+        to_y = self.radius * math.sin(self.rad_angle) * -1
+
+        #버블의 이동 처리
+        self.rect.x += to_x
+        self.rect.y += to_y       
+
+        #벽에 충돌 처리  (좌측을 벗어나거나 or 우측을 벗어난경우)
+        if self.rect.left <0 or self.rect.right > screen_width:
+            self.set_angle(180 - self.angle)                     #벽에 부딪히면 튕기게
+
 
 # 발사대 클래스 생성
 class LaunchPad(pygame.sprite.Sprite):
@@ -153,9 +173,8 @@ launchPad = LaunchPad(launchPad_image,( screen_width //2, 624),90)              
 CELL_SIZE =     56
 BUBBLE_WIDTH =  56
 BUBBLE_HEIGHT = 62
-
-#이번에 쏠 버블
-CURR_BUBBLE = None
+CURR_BUBBLE = None      #이번에 쏠 버블
+FIRE        = False     #발사중인지 여부
 
 #발사대 관련 변수
 TO_ANGLE_LEFT     = 0   # 좌로 움직인 각도의 정보
@@ -183,6 +202,12 @@ while running:
             elif event.key == pygame.K_RIGHT:    
                 TO_ANGLE_RIGHT -= ANGLE_SPEED
 
+            #스페이스바가 눌려지고 && CURR_BUBBLE 만들어져 있으며 && 발사중인상태가 아닐때 <발사!>
+            elif event.key == pygame.K_SPACE: 
+                if CURR_BUBBLE and not FIRE :
+                    FIRE = True
+                    CURR_BUBBLE.set_angle(launchPad.angle)            
+
     # 키보드의 아래화살표가 떼어졌을때 이벤트 처리
         if event.type == pygame.KEYUP:
             if event.key == pygame.K_LEFT:
@@ -198,8 +223,18 @@ while running:
     bubble_group.draw(screen)                                   #버블 표시하기
     launchPad.rotate(TO_ANGLE_LEFT+TO_ANGLE_RIGHT)              #발사대 이미지 각도 표현하기
     launchPad.draw(screen)                                      #발사대 표시하기
-    if CURR_BUBBLE:                                             #발사할 버블을 표시하기
+    
+    #발사할 버블을 표시하기
+    if CURR_BUBBLE:                                             
+        #발사중이라면
+        if FIRE:                
+            CURR_BUBBLE.move()
         CURR_BUBBLE.draw(screen)
+
+        #발사한 버블의 위치가 화면 맨위가 되면 current bubble은 없애고, 발사 상태를 초기화한다
+        if CURR_BUBBLE.rect.top <= 0 : 
+            CURR_BUBBLE = None
+            FIRE = False
 
     pygame.display.update()
      
