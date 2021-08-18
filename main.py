@@ -6,12 +6,14 @@ import math
 
 # 버블 클래스 생성
 class Bubble(pygame.sprite.Sprite):
-    def __init__(self, image , color, position=(0,0)):
-        super().__init__()
+    def __init__(self, image , color, position=(0,0) ,row_idx=-1, col_idx=-1):
+        super().__init__()  
         self.image  = image
         self.color  = color
         self.rect   = image.get_rect(center=position)
         self.radius = 9
+        self.row_idx = row_idx
+        self.col_idx = col_idx
 
     #버블의 위치 세팅해주는 setter
     def set_rect(self, position):   
@@ -35,6 +37,10 @@ class Bubble(pygame.sprite.Sprite):
         #벽에 충돌 처리  (좌측을 벗어나거나 or 우측을 벗어난경우)
         if self.rect.left <0 or self.rect.right > screen_width:
             self.set_angle(180 - self.angle)                     #벽에 부딪히면 튕기게
+
+    def set_map_index(self, row_idx, col_idx):
+        self.row_idx = row_idx
+        self.col_idx = col_idx        
 
 
 # 발사대 클래스 생성
@@ -74,16 +80,10 @@ class LaunchPad(pygame.sprite.Sprite):
 def setup():
     global map
     map = [
-        
-        list("...R...."),
-        list("......./"),
-        list("........"),
-        list("......./"),
-
-        #list("RRYYBBGG"),
-        #,list("RRYYBBG/"),  # '/' 로 표현한 것은 버블이 위치할 수 없는 곳임을 의미
-        #,list("BBGGRRYY"),
-        #list("BGGRRYY/"),
+        list("RRYYBBGG"),
+        list("RRYYBBG/"),  # '/' 로 표현한 것은 버블이 위치할 수 없는 곳임을 의미
+        list("BBGGRRYY"),
+        list("BGGRRYY/"),
         list("........"),  # '.' 로 표현한 것은 비어있는 공간임을 의미  
         list("......./"),
         list("........"),
@@ -99,7 +99,7 @@ def setup():
                 continue 
             pos = get_bubble_position(row_idx,col_idx)  # 버블 표시할 좌표 찾기
             image = get_bubble_image(col)               # 버블의 이미지 찾기
-            bubble_group.add(Bubble(image,col,pos))     # 버블객체를 만들어서 정보를 담아서 bubble_group에 삽입
+            bubble_group.add(Bubble(image,col,pos,row_idx,col_idx))     # 버블객체를 만들어서 정보를 담아서 bubble_group에 삽입
 
 
 #버블을 표시해야 할 좌표를 찾는다
@@ -167,8 +167,11 @@ def process_collision():
      #버블끼리 충돌 or 천장에 부딪힌경우
     if hit_bubble or CURR_BUBBLE.rect.top <= 0:
         #(* ㅁㅁ) 적으면 튜플형태를 (ㅇ,ㅇ)형태로 분리해서 전달
-        row_index, col_idx = get_map_index(*CURR_BUBBLE.rect.center)
-        place_bubble(CURR_BUBBLE, row_index, col_idx) 
+        row_idx, col_idx = get_map_index(*CURR_BUBBLE.rect.center)
+        place_bubble(CURR_BUBBLE, row_idx, col_idx) 
+       
+        remove_adjacent_bubbles(row_idx, col_idx, CURR_BUBBLE.color) #동일 색깔 버블 3개가 모이면 터뜨린다
+
         CURR_BUBBLE = None
         FIRE = False
 
@@ -187,7 +190,55 @@ def place_bubble(bubble, row_idx, col_idx):
     map[row_idx][col_idx] = bubble.color
     position = get_bubble_position(row_idx, col_idx)
     bubble.set_rect(position)
+    bubble.set_map_index(row_idx,col_idx)
     bubble_group.add(bubble)
+
+#동일 색깔 버블 3개가 모이면 터뜨린다(DFS 로직 이용)
+def remove_adjacent_bubbles(row_idx, col_idx, color):
+    visited.clear() #초기화
+    
+    visit(row_idx, col_idx, color)
+    if len(visited) >= 3:
+        remove_visited_bubbles() #터뜨린다
+
+#DFS를 위한 방문처리
+def visit(row_idx, col_idx, color):
+    #맵의 범위를 벗어나면 return 처리
+    if row_idx < 0 or row_idx >= MAP_ROW_COUNT or col_idx < 0 or col_idx >= MAP_COLUMN_COUNT:
+        return 
+
+    #현재 방문하려는 곳의 색상이 동일한지 확인하고 다르면 return
+    if map[row_idx][col_idx] != color:
+        return     
+    
+    #이미 방문했는지 확인하고 방문했었다면 return
+    if (row_idx, col_idx) in visited:
+        return
+
+    #방문처리
+    visited.append((row_idx,col_idx))
+
+    #행의 위치가 짝수인 경우 이동 가능 방향
+    rows = [0,  -1,-1, 0, 1, 1]
+    cols = [-1, -1, 0, 1, 0, -1]
+
+    #행의 위치가 홀수인 경우 이동 가능 방향
+    if row_idx % 2 == 1:
+        rows=[0, -1, -1, 0, 1, 1]
+        cols=[-1, 0, 1, 1, 1, 0 ]
+
+    #DFS처리
+    for i in range(len(rows)):
+        visit(row_idx + rows[i], col_idx + cols[i], color)
+
+def remove_visited_bubbles():
+    #터뜨릴 버블 찾기
+    bubbles_to_remove = [b for b in bubble_group if (b.row_idx, b.col_idx) in visited]
+
+
+    for bubble in bubbles_to_remove:
+        map[bubble.row_idx][bubble.col_idx] = "." # 맵을 초기화 시킨다
+        bubble_group.remove(bubble)
 
 pygame.init()
 screen_width = 448
@@ -232,7 +283,8 @@ TO_ANGLE_RIGHT    = 0   # 우로 움직인 각도의 정보
 ANGLE_SPEED = 1.5       # 움직일 속도(1.5도씩 움직이게 됨)
 
 
-map = [] #맵
+map     = [] #맵
+visited = [] #방문기록
 bubble_group = pygame.sprite.Group()  # 버블을 생성해서 관리할 공간
 setup()
 
