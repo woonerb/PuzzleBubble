@@ -80,10 +80,10 @@ class LaunchPad(pygame.sprite.Sprite):
 def setup():
     global map
     map = [
-        list("RRYYBBGG"),
-        list("RRYYBBG/"),  # '/' 로 표현한 것은 버블이 위치할 수 없는 곳임을 의미
-        list("BBGGRRYY"),
-        list("BGGRRYY/"),
+        list(".RYYYYY."),
+        list(".....R./"),
+        list("........"),
+        list("......./"),
         list("........"),  # '.' 로 표현한 것은 비어있는 공간임을 의미  
         list("......./"),
         list("........"),
@@ -92,6 +92,21 @@ def setup():
         list("......./"),
         list("........")
     ]
+
+
+    # map = [
+    #     list("RRYYBBGG"),
+    #     list("RRYYBBG/"),  # '/' 로 표현한 것은 버블이 위치할 수 없는 곳임을 의미
+    #     list("BBGGRRYY"),
+    #     list("BGGRRYY/"),
+    #     list("........"),  # '.' 로 표현한 것은 비어있는 공간임을 의미  
+    #     list("......./"),
+    #     list("........"),
+    #     list("......./"),
+    #     list("........"),
+    #     list("......./"),
+    #     list("........")
+    # ]
 
     for row_idx, row in enumerate(map):
         for col_idx, col in enumerate(row):
@@ -199,17 +214,23 @@ def remove_adjacent_bubbles(row_idx, col_idx, color):
     
     visit(row_idx, col_idx, color)
     if len(visited) >= 3:
-        remove_visited_bubbles() #터뜨린다
+        remove_visited_bubbles() #같은 색이 3개 이상이면 터뜨린다
+        remove_haning_bubbles()  #그 이후 천장에 붙어있지 않고 떠 있는 것이 있으면 없앤다
 
 #DFS를 위한 방문처리
-def visit(row_idx, col_idx, color):
+def visit(row_idx, col_idx, color=None):
     #맵의 범위를 벗어나면 return 처리
     if row_idx < 0 or row_idx >= MAP_ROW_COUNT or col_idx < 0 or col_idx >= MAP_COLUMN_COUNT:
         return 
 
     #현재 방문하려는 곳의 색상이 동일한지 확인하고 다르면 return
-    if map[row_idx][col_idx] != color:
-        return     
+    if color != None:
+        if map[row_idx][col_idx] != color:
+            return  
+
+    #빈 공간이거나, 버블이 존재할 수 없는 위치라면 return
+    if map[row_idx][col_idx] in [".","/"]:
+        return
     
     #이미 방문했는지 확인하고 방문했었다면 return
     if (row_idx, col_idx) in visited:
@@ -232,13 +253,28 @@ def visit(row_idx, col_idx, color):
         visit(row_idx + rows[i], col_idx + cols[i], color)
 
 def remove_visited_bubbles():
-    #터뜨릴 버블 찾기
+    #방문한 버블 찾기
     bubbles_to_remove = [b for b in bubble_group if (b.row_idx, b.col_idx) in visited]
 
+    for bubble in bubbles_to_remove:
+        map[bubble.row_idx][bubble.col_idx] = "." # 맵의 해당좌표를 빈 상태로 만든다
+        bubble_group.remove(bubble)
 
+def remove_not_visited_bubbles():
+    #방문하지 않은 버블찾기 -> 방문을 안했다면, 천장에 이어져있지 않은 버블이다
+    bubbles_to_remove = [b for b in bubble_group if (b.row_idx, b.col_idx) not in visited]
+    
     for bubble in bubbles_to_remove:
         map[bubble.row_idx][bubble.col_idx] = "." # 맵을 초기화 시킨다
         bubble_group.remove(bubble)
+
+def remove_haning_bubbles():
+    visited.clear()
+    for col_idx in range(MAP_COLUMN_COUNT):
+        if map[0][col_idx] != ".":
+            visit(0,col_idx,color=None)
+    remove_not_visited_bubbles()  #방문하지 않은 곳을 터뜨린다 -> 방문하지 않은 곳은 천장에 붙어있지 않은 버블이므로
+
 
 pygame.init()
 screen_width = 448
