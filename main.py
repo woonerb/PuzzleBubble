@@ -18,17 +18,20 @@ class Bubble(pygame.sprite.Sprite):
     #버블의 위치 세팅해주는 setter
     def set_rect(self, position):   
         self.rect = self.image.get_rect(center=position)
-
+    
+    #버블을 그린다
     def draw(self, screen, to_x=None):
         if to_x: 
             screen.blit(self.image, (self.rect.x + to_x, self.rect.y)) #to_x만큼 더 해줘서 흔들리는 것 처럼 보이게 
         else:
             screen.blit(self.image, self.rect)
  
+    #각도를 set한다.  input:각도, output:라디안
     def set_angle(self, angle):
         self.angle = angle
         self.rad_angle = math.radians(self.angle) #각도를 라디안수치로 변경
 
+    #버블을 이동시킨다
     def move(self):
         to_x = self.radius * math.cos(self.rad_angle)
         to_y = self.radius * math.sin(self.rad_angle) * -1
@@ -41,10 +44,14 @@ class Bubble(pygame.sprite.Sprite):
         if self.rect.left <0 or self.rect.right > screen_width:
             self.set_angle(180 - self.angle)                     #벽에 부딪히면 튕기게
 
+    #버블의 x행과 y행 값을 불러온다
     def set_map_index(self, row_idx, col_idx):
         self.row_idx = row_idx
         self.col_idx = col_idx        
 
+    #버블을 height만큼 아래로 떨어뜨린다
+    def drop_downward(self, height):
+        self.rect = self.image.get_rect(center=(self.rect.centerx, self.rect.centery + height))
 
 # 발사대 클래스 생성
 class LaunchPad(pygame.sprite.Sprite):
@@ -83,10 +90,10 @@ class LaunchPad(pygame.sprite.Sprite):
 def setup():
     global map
     map = [
-        list(".RYYYYY."),
-        list(".....R./"),
-        list("........"),
-        list("......./"),
+        list("RRYYBBGG"),
+        list("RRYYBBG/"),  # '/' 로 표현한 것은 버블이 위치할 수 없는 곳임을 의미
+        list("BBGGRRYY"),
+        list("BGGRRYY/"),
         list("........"),  # '.' 로 표현한 것은 비어있는 공간임을 의미  
         list("......./"),
         list("........"),
@@ -95,21 +102,6 @@ def setup():
         list("......./"),
         list("........")
     ]
-
-
-    # map = [
-    #     list("RRYYBBGG"),
-    #     list("RRYYBBG/"),  # '/' 로 표현한 것은 버블이 위치할 수 없는 곳임을 의미
-    #     list("BBGGRRYY"),
-    #     list("BGGRRYY/"),
-    #     list("........"),  # '.' 로 표현한 것은 비어있는 공간임을 의미  
-    #     list("......./"),
-    #     list("........"),
-    #     list("......./"),
-    #     list("........"),
-    #     list("......./"),
-    #     list("........")
-    # ]
 
     for row_idx, row in enumerate(map):
         for col_idx, col in enumerate(row):
@@ -123,7 +115,7 @@ def setup():
 #버블을 표시해야 할 좌표를 찾는다
 def get_bubble_position(row_idx, col_idx):
     pos_x= col_idx * CELL_SIZE + (BUBBLE_WIDTH //2)   # ->파이썬에서 /쓰면 실수로 나오니 나머지 버리고 정수만 얻고 싶을때 사용
-    pos_y= row_idx * CELL_SIZE + (BUBBLE_HEIGHT //2)
+    pos_y= row_idx * CELL_SIZE + (BUBBLE_HEIGHT //2) + WALL_HEIGHT
     if row_idx %2==1 : pos_x += CELL_SIZE //2         #홀수 행일때는 버블의 반칸 만큼 오른쪽으로 밀려있어야 하므로
     return pos_x, pos_y
 
@@ -183,7 +175,7 @@ def process_collision():
     #충돌한 버블
     hit_bubble = pygame.sprite.spritecollideany(CURR_BUBBLE, bubble_group, pygame.sprite.collide_mask)
      #버블끼리 충돌 or 천장에 부딪힌경우
-    if hit_bubble or CURR_BUBBLE.rect.top <= 0:
+    if hit_bubble or CURR_BUBBLE.rect.top <= WALL_HEIGHT:
         #(* ㅁㅁ) 적으면 튜플형태를 (ㅇ,ㅇ)형태로 분리해서 전달
         row_idx, col_idx = get_map_index(*CURR_BUBBLE.rect.center)
         place_bubble(CURR_BUBBLE, row_idx, col_idx) 
@@ -196,7 +188,7 @@ def process_collision():
 
 
 def get_map_index(x, y):
-    row_idx = y // CELL_SIZE
+    row_idx = (y - WALL_HEIGHT) // CELL_SIZE
     col_idx = x // CELL_SIZE
     if row_idx %2 ==1:
         col_idx = (x - (CELL_SIZE //2)) // CELL_SIZE
@@ -292,6 +284,15 @@ def draw_bubbles():
     for bubble in bubble_group:
         bubble.draw(screen, to_x)
 
+def drop_wall():
+    global WALL_HEIGHT,CURR_FIRE_COUNT
+    
+    #벽이 내려온 만큼 모두 밑으로 내린다
+    WALL_HEIGHT += CELL_SIZE
+    for bubble in bubble_group:
+        bubble.drop_downward(CELL_SIZE)
+    CURR_FIRE_COUNT = FIRE_COUNT
+
 pygame.init()
 screen_width = 448
 screen_height = 720
@@ -302,7 +303,9 @@ clock = pygame.time.Clock()
 
 # 배경이미지 불러오기
 current_path = os.path.dirname(__file__)  #실행하는 py경로 가져오기
-background = pygame.image.load(os.path.join(current_path, "background.png"))  #배경
+background = pygame.image.load(os.path.join(current_path, "background.png"))  #배경 이미지 불러오기
+wall       = pygame.image.load(os.path.join(current_path, "wall.png"))        #벽 이미지 불러오기
+
 
 # 버블 이미지 불러오기
 bubble_images = [
@@ -326,6 +329,7 @@ MAP_ROW_COUNT = 11        #맵의 행 갯수
 MAP_COLUMN_COUNT=8        #맵의 열 갯수
 FIRE_COUNT = 7                  # 이번 게임의 총 발사기회       
 CURR_FIRE_COUNT = FIRE_COUNT    # 남은 발사기회
+WALL_HEIGHT = 0                 # 화면에 보여지는 벽의 높이
 
 CURR_BUBBLE = None      #이번에 쏠 버블
 NEXT_BUBBLE = None      #다음에 쏠 버블
@@ -376,10 +380,14 @@ while running:
         prepare_bubbles()
 
     if FIRE:
-        #충돌처리
-        process_collision()
+        process_collision() #충돌처리
 
-    screen.blit(background, (0,0))                              #(0,0) background 표시하기                               
+    # 발사기회를 모두 사용했을때, 벽을 내린다.
+    if CURR_FIRE_COUNT == 0:
+        drop_wall()
+
+    screen.blit(background, (0,0))                              #(0,0) background 표시하기   
+    screen.blit(wall,(0, WALL_HEIGHT - screen_height))          #게임 over시 벽 표시하기                            
     draw_bubbles()                                              #버블 표시하기
     launchPad.rotate(TO_ANGLE_LEFT+TO_ANGLE_RIGHT)              #발사대 이미지 각도 표현하기
     launchPad.draw(screen)                                      #발사대 표시하기
