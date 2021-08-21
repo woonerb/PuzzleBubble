@@ -86,9 +86,11 @@ class LaunchPad(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(center=self.position)     
 
 
-#맵 만들기
+#게임맵기
 def setup():
     global map
+
+    # lv1
     map = [
         list("RRYYBBGG"),
         list("RRYYBBG/"),  # '/' 로 표현한 것은 버블이 위치할 수 없는 곳임을 의미
@@ -102,6 +104,37 @@ def setup():
         list("......./"),
         list("........")
     ]
+
+    # # lv2
+    # map = [
+    #     list("...YY..."),
+    #     list("...G.../"),
+    #     list("...R...."),
+    #     list("...B.../"),
+    #     list("...R...."),
+    #     list("...G.../"),
+    #     list("...P...."),
+    #     list("...P.../"),
+    #     list("........"),
+    #     list("......./"),
+    #     list("........")
+    # ]    
+
+    # # lv3
+    # map = [
+    #     list("G......G"),
+    #     list("RGBYRGB/"),
+    #     list("Y......Y"),
+    #     list("BYRGBYR/"),
+    #     list("...R...."),
+    #     list("...G.../"),
+    #     list("...R...."),
+    #     list("......./"),
+    #     list("........"),
+    #     list("......./"),
+    #     list("........")
+    # ]
+
 
     for row_idx, row in enumerate(map):
         for col_idx, col in enumerate(row):
@@ -284,6 +317,7 @@ def draw_bubbles():
     for bubble in bubble_group:
         bubble.draw(screen, to_x)
 
+#벽을 아래로 내린다.
 def drop_wall():
     global WALL_HEIGHT,CURR_FIRE_COUNT
     
@@ -292,6 +326,22 @@ def drop_wall():
     for bubble in bubble_group:
         bubble.drop_downward(CELL_SIZE)
     CURR_FIRE_COUNT = FIRE_COUNT
+
+#현재 화면의 버블들 중에서 가장 밑에 있는 버블의 bottom값을 리턴한다.
+def get_lowest_bubble_bottom():
+    bubble_bottoms = [bubble.rect.bottom for bubble in bubble_group] #bubble_group의 버블들의 bottom 값을 가져온다.
+    return max(bubble_bottoms)
+
+#game over시 버블을 모두 검은색으로 바꾼다
+def change_bubble_image(image):
+    for bubble in bubble_group:
+        bubble.image = image
+
+#game over 처리 함수
+def display_game_over():
+    txt_game_over = GAME_FONT.render(GAME_RESULT, True, WHITE)
+    rect_game_over = txt_game_over.get_rect(center=(screen_width // 2, screen_height // 2))
+    screen.blit(txt_game_over, rect_game_over)
 
 pygame.init()
 screen_width = 448
@@ -331,6 +381,13 @@ FIRE_COUNT = 7                  # 이번 게임의 총 발사기회
 CURR_FIRE_COUNT = FIRE_COUNT    # 남은 발사기회
 WALL_HEIGHT = 0                 # 화면에 보여지는 벽의 높이
 
+#게임 종료 처리를 위한 변수 
+IS_GAME_OVER = False
+GAME_FONT = pygame.font.SysFont("arialrounded", 40)
+GAME_RESULT = None
+WHITE = (255,255,255)
+
+#버블 발사를 위한 변수
 CURR_BUBBLE = None      #이번에 쏠 버블
 NEXT_BUBBLE = None      #다음에 쏠 버블
 FIRE        = False     #발사중인지 여부
@@ -386,6 +443,19 @@ while running:
     if CURR_FIRE_COUNT == 0:
         drop_wall()
 
+    #게임 종료 처리
+    ###성공###
+    if not bubble_group:
+        GAME_RESULT = "Mission Complete"
+        IS_GAME_OVER = True
+
+    ###실패###
+    elif get_lowest_bubble_bottom() > len(map) * CELL_SIZE:
+        GAME_RESULT = "Game Over"
+        IS_GAME_OVER = True
+        change_bubble_image(bubble_images[5])
+
+
     screen.blit(background, (0,0))                              #(0,0) background 표시하기   
     screen.blit(wall,(0, WALL_HEIGHT - screen_height))          #게임 over시 벽 표시하기                            
     draw_bubbles()                                              #버블 표시하기
@@ -403,6 +473,12 @@ while running:
     if NEXT_BUBBLE:
             NEXT_BUBBLE.draw(screen)        
 
+    #game over 출력
+    if IS_GAME_OVER:
+        display_game_over()
+        running = False
+
     pygame.display.update()
-     
+
+pygame.time.delay(3000) #게임 over시 3초 대기후 종료     
 pygame.quit()
