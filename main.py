@@ -19,9 +19,12 @@ class Bubble(pygame.sprite.Sprite):
     def set_rect(self, position):   
         self.rect = self.image.get_rect(center=position)
 
-    def draw(self, screen):
-        screen.blit(self.image, self.rect)    
-
+    def draw(self, screen, to_x=None):
+        if to_x: 
+            screen.blit(self.image, (self.rect.x + to_x, self.rect.y)) #to_x만큼 더 해줘서 흔들리는 것 처럼 보이게 
+        else:
+            screen.blit(self.image, self.rect)
+ 
     def set_angle(self, angle):
         self.angle = angle
         self.rad_angle = math.radians(self.angle) #각도를 라디안수치로 변경
@@ -176,7 +179,7 @@ def get_random_bubble_color():
     return random.choice(colors)            
 
 def process_collision():
-    global CURR_BUBBLE, FIRE
+    global CURR_BUBBLE, FIRE,CURR_FIRE_COUNT
     #충돌한 버블
     hit_bubble = pygame.sprite.spritecollideany(CURR_BUBBLE, bubble_group, pygame.sprite.collide_mask)
      #버블끼리 충돌 or 천장에 부딪힌경우
@@ -189,6 +192,7 @@ def process_collision():
 
         CURR_BUBBLE = None
         FIRE = False
+        CURR_FIRE_COUNT -= 1  #발사할때마다 발사기회 -1시킨다.
 
 
 def get_map_index(x, y):
@@ -275,6 +279,18 @@ def remove_haning_bubbles():
             visit(0,col_idx,color=None)
     remove_not_visited_bubbles()  #방문하지 않은 곳을 터뜨린다 -> 방문하지 않은 곳은 천장에 붙어있지 않은 버블이므로
 
+def draw_bubbles():
+    #흔들리는 효과를 내기위해서 x좌표를 더 해준다
+    to_x = None
+    if CURR_FIRE_COUNT == 2:
+        to_x = random.randint(-1,1) -1   # -1 ~ 1의 값을 난수로 가진다
+
+    elif CURR_FIRE_COUNT == 1:
+        to_x = random.randint(-4,4) -1   # -4 ~ 4의 값을 난수로 가진다
+    
+    #버블을 그린다.    
+    for bubble in bubble_group:
+        bubble.draw(screen, to_x)
 
 pygame.init()
 screen_width = 448
@@ -308,6 +324,8 @@ BUBBLE_WIDTH =  56
 BUBBLE_HEIGHT = 62
 MAP_ROW_COUNT = 11        #맵의 행 갯수
 MAP_COLUMN_COUNT=8        #맵의 열 갯수
+FIRE_COUNT = 7                  # 이번 게임의 총 발사기회       
+CURR_FIRE_COUNT = FIRE_COUNT    # 남은 발사기회
 
 CURR_BUBBLE = None      #이번에 쏠 버블
 NEXT_BUBBLE = None      #다음에 쏠 버블
@@ -361,8 +379,8 @@ while running:
         #충돌처리
         process_collision()
 
-    screen.blit(background, (0,0))                              #(0,0) background 표시하기     
-    bubble_group.draw(screen)                                   #버블 표시하기
+    screen.blit(background, (0,0))                              #(0,0) background 표시하기                               
+    draw_bubbles()                                              #버블 표시하기
     launchPad.rotate(TO_ANGLE_LEFT+TO_ANGLE_RIGHT)              #발사대 이미지 각도 표현하기
     launchPad.draw(screen)                                      #발사대 표시하기
     
